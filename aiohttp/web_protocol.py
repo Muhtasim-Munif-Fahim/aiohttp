@@ -740,6 +740,11 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
                     await self._waiter
                 finally:
                     self._waiter = None
+                # connection_lost() may run after data_received() resolved the
+                # waiter but before this coroutine resumes; it cannot cancel
+                # the already resolved waiter, so check again here.
+                if self._force_close:
+                    break  # type: ignore[unreachable]
 
             message, payload = self._messages.popleft()
 

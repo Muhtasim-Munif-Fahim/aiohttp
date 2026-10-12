@@ -538,3 +538,27 @@ async def test_handler_slower_than_first_request_deadline(
     finally:
         writer.close()
         await writer.wait_closed()
+
+
+async def test_connection_lost_after_request_queued_in_same_iteration() -> None:
+    """A request queued just before connection_lost() must not be handled.
+
+    data_received() resolves the waiter of start() and connection_lost() then
+    runs before start() resumes, so it can't cancel the waiter anymore.
+    """
+    handler = mock.AsyncMock(return_value=web.Response(text="ok"))
+    proto = web.Server(handler)()
+    transport = mock.Mock()
+    transport.is_closing.return_value = False
+    transport.get_extra_info.return_value = None
+    proto.connection_made(transport)
+    task = proto._task_handler
+    assert task is not None
+    await asyncio.sleep(0)  # start() waits for the first request
+
+    proto.data_received(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+    proto.connection_lost(None)
+
+    await asyncio.wait_for(task, timeout=1)
+    assert task.exception() is None
+    handler.assert_not_called()

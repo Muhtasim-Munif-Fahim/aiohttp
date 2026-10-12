@@ -1,0 +1,3 @@
+Fixed :py:meth:`~aiohttp.web_protocol.RequestHandler.start` raising ``TypeError`` when the
+connection was lost after a request had been queued but before the request
+was handled -- by :user:`Muhtasim-Munif-Fahim`.
